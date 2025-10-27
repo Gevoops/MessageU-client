@@ -1,6 +1,8 @@
 #include "Contact.h"
 #include <iostream>
 #include "Constants.h"
+#include <iomanip>
+#include <cstdint>
 
 std::vector<Contact> Contact::contacts;
 
@@ -17,16 +19,31 @@ const uint8_t* Contact::getClientID() const{
 	return clientID;
 }
 
+const bool Contact::isContactsEmpty() 
+{
+	return contacts.size() > 0;
+}
+
+void Contact::setPublicKey(const uint8_t * newPublicKey) {
+	std::memcpy(publicKey, newPublicKey, PUBLICKEY_SIZE_BYTES);
+}
+
 Contact* Contact::getContact(std::string username) {
 	for (Contact& contact : contacts) {
-		std::cout << "iterate contact username is: " << contact.getUsername() << "\n";
-		std::cout << "target username is " << username << "\n";
 		if (contact.getUsername() == username) {
-			std::cout << "found match\n";
 			return &contact;
 		}
 	}
-	std::cout << "not found bro " << username << "\n";
+	return nullptr;
+}
+
+
+Contact* Contact::getContact(const uint8_t * id) {
+	for (Contact& contact : contacts) {
+		if (std::memcmp(id, contact.clientID, CLIENTID_SIZE_BYTES) == 0) {
+			return &contact;
+		}
+	}
 	return nullptr;
 }
 

@@ -47,7 +47,7 @@ SOCKET Communication::initSocket() {
 		return INVALID_SOCKET;
 	}
 
-
+	std::cout << "Connected to server!" << std::endl;
 	return clientSocket;
 }
 

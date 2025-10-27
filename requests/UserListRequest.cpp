@@ -3,5 +3,5 @@
 #include <iostream>
 
 
-UserListRequest::UserListRequest() : Request(USER_LIST_REQ_CODE, 0) {
+UserListRequest::UserListRequest() : Request(USER_LIST_REQ, 0) {
 }

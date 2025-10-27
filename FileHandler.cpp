@@ -24,7 +24,6 @@ void FileHandler::createMyInfo(std::string username, std::string uuid) {
 bool FileHandler::isRegistered() {
 	std::ifstream file("my.info");
 	if (file) {
-		std::cout << "my.info already exists" << std::endl;
 		return true;
 	}
 	return false;

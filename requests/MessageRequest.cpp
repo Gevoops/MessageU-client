@@ -5,7 +5,7 @@
 
 
 MessageRequest::MessageRequest(const uint8_t* targetClientID, uint8_t type, int contentSize, const std::vector<uint8_t> &content)
-	: Request(MESSAGE_REQ_CODE, CLIENTID_SIZE_BYTES + MESSAGE_TYPE_SIZE_BYTES + MESSAGE_CONTENT_SIZE_SIZE_BYTES + content.size()) {
+	: Request(MESSAGE_REQ, CLIENTID_SIZE_BYTES + MESSAGE_TYPE_SIZE_BYTES + MESSAGE_CONTENT_SIZE_SIZE_BYTES + content.size()) {
 
 	payLoad.clear();
 	payLoad.insert(payLoad.end(), targetClientID, targetClientID + CLIENTID_SIZE_BYTES);

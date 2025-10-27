@@ -4,4 +4,4 @@
 #include "UserListRequest.h"
 #include "PublicKeyRequest.h"
 #include "MessageRequest.h"
-
+#include "getMessagesRequest.h"
