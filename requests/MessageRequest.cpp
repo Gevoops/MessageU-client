@@ -7,15 +7,15 @@
 MessageRequest::MessageRequest(const uint8_t* targetClientID, uint8_t type, int contentSize, const std::vector<uint8_t> &content)
 	: Request(MESSAGE_REQ, CLIENTID_SIZE_BYTES + MESSAGE_TYPE_SIZE_BYTES + MESSAGE_CONTENT_SIZE_SIZE_BYTES + content.size()) {
 
-	payLoad.clear();
-	payLoad.insert(payLoad.end(), targetClientID, targetClientID + CLIENTID_SIZE_BYTES);
-	payLoad.push_back(type);
+	m_payLoad.clear();
+	m_payLoad.insert(m_payLoad.end(), targetClientID, targetClientID + CLIENTID_SIZE_BYTES);
+	m_payLoad.push_back(type);
 
 	uint32_t netSize = htonl(contentSize);
-	payLoad.insert(payLoad.end(), 
+	m_payLoad.insert(m_payLoad.end(), 
 		reinterpret_cast<uint8_t*>(&netSize),
 		reinterpret_cast<uint8_t*>(&netSize) + sizeof(netSize));
-	payLoad.insert(payLoad.end(), content.begin(), content.end());
+	m_payLoad.insert(m_payLoad.end(), content.begin(), content.end());
 
 
 }

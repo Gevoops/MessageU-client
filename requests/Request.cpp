@@ -5,41 +5,41 @@
 #include <fstream>
 #include <iostream>
 #include <string>
+#include "../FileHandler.h"
 
 uint8_t Request::version = VERSION;
 Request::Request(uint16_t code, uint32_t sizeOfPayload)
-: requestCode(code), payloadSize(sizeOfPayload) {
-	std::memcpy(clientID, Communication::clientID, CLIENTID_SIZE_BYTES);
-}
-
-
-const uint8_t* Request::getClientID() const {
-	return clientID;
+: m_requestCode(code), m_payloadSize(sizeOfPayload) {
+	FileHandler::readClientID(m_clientID);
 }
 
 uint16_t Request::getRequestCode() const {
-	return requestCode;
+	return m_requestCode;
 }
 
 uint32_t Request::getpayLoadSize() const {
-	return payloadSize;
+	return m_payloadSize;
 }
 
 std::vector<uint8_t> Request::serialize() const {
 	std::vector<uint8_t> dataVec;
-	dataVec.assign(this->clientID, this->clientID + sizeof(clientID));
+	dataVec.assign(this->m_clientID,this->m_clientID + sizeof(m_clientID));
 
 	dataVec.insert(dataVec.end(), version);
 	size_t startPos = dataVec.size();
-	uint16_t reqCodeData = this->requestCode;
+	uint16_t reqCodeData = this->m_requestCode;
 	dataVec.resize(startPos + sizeof(reqCodeData));
 	std::memcpy(dataVec.data() + startPos, &reqCodeData, sizeof(reqCodeData));
 	startPos = dataVec.size();
-	uint32_t sizeOfPayload = this->payloadSize;
+	uint32_t sizeOfPayload = this->m_payloadSize;
 	dataVec.resize(startPos + sizeof(sizeOfPayload));
 	std::memcpy(dataVec.data() + startPos, &sizeOfPayload, sizeof(sizeOfPayload));
 	
-	dataVec.insert(dataVec.end(), payLoad.begin(), payLoad.end());
+	dataVec.insert(dataVec.end(), m_payLoad.begin(), m_payLoad.end());
 
 	return dataVec;
+}
+
+void Request::setClientID()
+{
 }

@@ -8,24 +8,21 @@
 
 class Request {
     protected:
-        uint8_t clientID[16];
+        uint8_t m_clientID[16] = {0};
         static uint8_t version;
-        uint16_t requestCode;
-        uint32_t payloadSize;
-        std::vector<uint8_t> payLoad;
-
-        
-
+        uint16_t m_requestCode;
+        uint32_t m_payloadSize;
+        std::vector<uint8_t> m_payLoad;
     public:
         Request(uint16_t code, uint32_t dataSize);
-
-        const uint8_t* getClientID() const;
 
         uint16_t getRequestCode() const;
 
         uint32_t getpayLoadSize() const;
 
         std::vector<uint8_t> serialize() const;
+
+        void setClientID();
 
 };
 

@@ -7,7 +7,10 @@
 #include <ws2tcpip.h>
 
 
-uint8_t Communication::clientID[CLIENTID_SIZE_BYTES] = {0};
+Communication::Communication() {
+	m_socket = initSocket();
+	initClientId();
+}
 
 SOCKET Communication::initSocket() {
 	WSADATA wsaData;
@@ -49,6 +52,11 @@ SOCKET Communication::initSocket() {
 
 	std::cout << "Connected to server!" << std::endl;
 	return clientSocket;
+}
+
+SOCKET Communication::getSocket() const
+{
+	return m_socket;
 }
 
 void Communication::initClientId() {

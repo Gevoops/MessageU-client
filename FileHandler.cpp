@@ -21,6 +21,24 @@ void FileHandler::createMyInfo(std::string username, std::string uuid) {
 	file.close();
 }
 
+bool FileHandler::readClientID(uint8_t(&m_clientID)[16])
+{
+	std::ifstream file("my.info");
+	if (!file) return false;
+	
+	std::string cid;
+
+	std::getline(file, cid);
+
+	if (!std::getline(file, cid)) return false;
+	if (cid.size() != 32) return false;
+
+	for (size_t i = 0; i < 16; ++i) {
+		std::string byteString = cid.substr(i * 2, 2);
+		m_clientID[i] = static_cast<uint8_t>(std::stoul(byteString, nullptr, 16));
+	}
+}
+
 bool FileHandler::isRegistered() {
 	std::ifstream file("my.info");
 	if (file) {

@@ -4,10 +4,12 @@
 #include <winsock2.h>
 
 class Communication {
-	public:
-		static uint8_t clientID[CLIENTID_SIZE_BYTES];
-
-		static SOCKET initSocket();
-
-		static void initClientId();
+public:
+	Communication();
+	SOCKET getSocket() const;
+	void initClientId();
+private:
+	SOCKET initSocket();
+	uint8_t clientID[CLIENTID_SIZE_BYTES] = {};
+	SOCKET m_socket;
 };
