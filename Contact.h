@@ -8,7 +8,8 @@ class Contact {
 private: 
 	std::string username;
 	uint8_t clientID[CLIENTID_SIZE_BYTES];
-	uint8_t publicKey[PUBLICKEY_SIZE_BYTES] = {0};
+	std::vector<uint8_t> m_publicKey;
+	std::vector<uint8_t> m_symmKey;
 
 public: 
 	static std::vector<Contact> contacts;
@@ -19,7 +20,12 @@ public:
 
 	static const bool isContactsEmpty();
 
-	void setPublicKey(const uint8_t* newPublicKey);
+	void setPublicKey(std::vector<uint8_t> newPublicKey);
+	const std::vector<uint8_t>& getPublicKey() const;
+
+	void setSymmKey(std::vector<uint8_t> newSymmKey);
+	const std::vector<uint8_t>& getSymmKey() const;
+
 
 	Contact(std::string username, const uint8_t* clientID);
 

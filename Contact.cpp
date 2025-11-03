@@ -21,11 +21,26 @@ const uint8_t* Contact::getClientID() const{
 
 const bool Contact::isContactsEmpty() 
 {
-	return contacts.size() > 0;
+	return contacts.size() == 0;
 }
 
-void Contact::setPublicKey(const uint8_t * newPublicKey) {
-	std::memcpy(publicKey, newPublicKey, PUBLICKEY_SIZE_BYTES);
+void Contact::setPublicKey(std::vector<uint8_t> newPublicKey) {
+	m_publicKey = std::move(newPublicKey);
+}
+
+const std::vector<uint8_t>& Contact::getPublicKey() const
+{
+	return m_publicKey;
+}
+
+void Contact::setSymmKey(std::vector<uint8_t> newSymmKey)
+{
+	m_symmKey = std::move(newSymmKey);
+}
+
+const std::vector<uint8_t>& Contact::getSymmKey() const
+{
+	return m_symmKey;
 }
 
 Contact* Contact::getContact(std::string username) {

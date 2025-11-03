@@ -3,16 +3,24 @@
 #include "Communication.h"
 #include "requests/RequestSender.h"
 #include "ResponseReceiver.h"
+#include "Crypto.h"
 
 class ClientController {
 public:
-	ClientController(FileHandler& fileHandler, RequestSender& sender, ResponseReceiver & receiver);
+	ClientController(FileHandler& fileHandler, RequestSender& sender, ResponseReceiver & receiver, Crypto & crypto);
 	void run();
 	
 
 
 private:
-	
+	std::vector<uint8_t> m_publicKey{ PUBLICKEY_SIZE_BYTES };
+	std::vector<uint8_t> m_privateKey{ PUBLICKEY_SIZE_BYTES };
+	std::string m_registrationUsername = "";
+	FileHandler& m_fileHandler;
+	RequestSender& m_sender;
+	ResponseReceiver& m_receiver;
+	Crypto& m_crypto;
+
 	void printMenu();
 	bool handleChoice(int choice);
 	int readInput();
@@ -31,11 +39,6 @@ private:
 	void messageReceivedByServer(char* buffer);
 	void waitingMessages(char* buffer, short payloadSize);
 
-
-	std::string m_registrationUsername = "";
-	FileHandler& m_fileHandler;
-	RequestSender& m_sender;
-	ResponseReceiver& m_receiver;
 	
 
 	static const int INVALID_INPUT = -1;

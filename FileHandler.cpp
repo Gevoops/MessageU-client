@@ -2,6 +2,8 @@
 #include <iostream>
 #include <fstream>
 #include <string>
+#include <iomanip>
+#include "Constants.h"
 
 std::string FileHandler::serverIp = "";
 int FileHandler::serverPort = 0;
@@ -10,14 +12,17 @@ FileHandler::FileHandler() {
 	
 }
 
-void FileHandler::createMyInfo(std::string username, std::string uuid) {
+void FileHandler::createMyInfo(std::string username, std::string uuid, const std::vector<uint8_t>& publicKey) {
 	std::ofstream file("my.info");
 	if (!file) {
 		std::cout << "error creating my.info file" << std::endl;
 		exit(1);
 	}
 	file << username << std::endl;
-	file << uuid;
+	file << uuid << std::endl;
+	for (int i = 0; i < PUBLICKEY_SIZE_BYTES; i++) {
+		file << std::hex << std::setw(2) << std::setfill('0') << (int)publicKey[i];
+	}
 	file.close();
 }
 
@@ -37,6 +42,7 @@ bool FileHandler::readClientID(uint8_t(&m_clientID)[16])
 		std::string byteString = cid.substr(i * 2, 2);
 		m_clientID[i] = static_cast<uint8_t>(std::stoul(byteString, nullptr, 16));
 	}
+	return true;
 }
 
 bool FileHandler::isRegistered() {

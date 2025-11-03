@@ -21,11 +21,11 @@
 
 int main() {
 	FileHandler fileHandler;
-	Communication comm;
+	Communication comm; // init socket
 	RequestSender sender(comm);
 	ResponseReceiver receiver(comm);
-	ClientController controller(fileHandler, sender, receiver);
-	SOCKET clientSocket = comm.getSocket();
+	Crypto crypto;
+	ClientController controller(fileHandler, sender, receiver, crypto);
 
 	controller.run();
 

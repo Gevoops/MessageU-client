@@ -9,7 +9,6 @@
 
 Communication::Communication() {
 	m_socket = initSocket();
-	initClientId();
 }
 
 SOCKET Communication::initSocket() {
@@ -63,11 +62,29 @@ void Communication::initClientId() {
 	std::string clientID_string;
 	std::ifstream file("my.info");
 	if (file) {
-		std::cout << "reading client id from file" << std::endl;
 		std::getline(file, clientID_string);
 		std::getline(file, clientID_string); // twice to get second row
-		std::cout << "file content is: " + clientID_string << std::endl;
 		std::memcpy(Communication::clientID, Utils::stringToByteHexa(clientID_string), CLIENTID_SIZE_BYTES);
 		file.close();
 	}
+}
+
+bool Communication::isLittleEndian()
+{
+	uint16_t num = 1;
+	return *(uint8_t*)&num == 1;
+}
+
+uint32_t Communication::swapEndian32(uint32_t num)
+{
+	return ((num & 0x000000FF) << 24) |
+	       ((num & 0x0000FF00) << 8) |
+		   ((num & 0x00FF0000) >> 8) |
+		   ((num & 0xFF000000) >> 24);
+}
+
+uint16_t Communication::swapEndian16(uint16_t num)
+{
+	return ((num & 0x00FF) << 8) |
+	       ((num & 0xFF00) >> 8);
 }

@@ -6,6 +6,6 @@
 class RegisterRequest : public Request {
 
 public:
-	RegisterRequest(std::string username, const uint8_t* publickey);
+	RegisterRequest(std::string username, std::vector<uint8_t> publicKey);
 };
 

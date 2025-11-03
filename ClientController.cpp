@@ -11,8 +11,8 @@
 
 
 
-ClientController::ClientController(FileHandler& fileHandler, RequestSender& sender, ResponseReceiver& receiver) :
-	m_fileHandler(fileHandler), m_sender(sender), m_receiver(receiver)
+ClientController::ClientController(FileHandler& fileHandler, RequestSender& sender, ResponseReceiver& receiver, Crypto &crypto) :
+	m_fileHandler(fileHandler), m_sender(sender), m_receiver(receiver) , m_crypto(crypto)
 {
 	
 }
@@ -21,6 +21,7 @@ void ClientController::run()
 {
 	bool sentRequest;
 	int choice = 1;
+
 	while (choice) {
 		printMenu();
 		choice = readInput();
@@ -153,13 +154,12 @@ bool ClientController::registerClient() {
 	std::cout << "please choose a username. max length is 254 characters." << std::endl;
 	std::getline(std::cin, m_registrationUsername);
 	
-
 	if (m_registrationUsername.size() > USERNAME_SIZE_BYTES - 1 || m_registrationUsername.size() == 0) {
 		std::cout << "username not valid, please choose 1 - 254 chars";
 		return false;
 	}
-	uint8_t publicKey[PUBLICKEY_SIZE_BYTES] = { "shahf" };
-	m_sender.sendRegisterReq(m_registrationUsername, publicKey);
+	m_crypto.genPublicPrivateKeyPair(m_publicKey, m_privateKey);
+	m_sender.sendRegisterReq(m_registrationUsername, m_publicKey);
 	return true;
 }
 
@@ -182,12 +182,12 @@ bool ClientController::reqPublicKey()
 	std::string targetUsername;
 	std::getline(std::cin, targetUsername);
 
-	Contact* c = Contact::getContact(targetUsername);
-	if (c == nullptr) {
+	Contact* contact = Contact::getContact(targetUsername);
+	if (contact == nullptr) {
 		std::cout << "contact not found. ask for contact list or try another\n";
 		return false;
 	}
-	m_sender.sendPublicKeyReq(c);
+	m_sender.sendPublicKeyReq(contact);
 	return true;
 }
 
@@ -237,6 +237,11 @@ bool ClientController::reqSymmKey()
 		return false;
 	}
 	std::vector<uint8_t> messageContent;
+	messageContent = m_crypto.publicKeyEncrypt(c->getPublicKey(), messageContent);
+	if (messageContent.empty()) {
+		std::cout << "before sending this request, please get the recipient public key\n";
+		return false;
+	}
 	m_sender.sendMessageReq(c->getClientID(), SYM_KEY_REQ_MESSAGE, 0, messageContent);
 	return true;
 }
@@ -253,10 +258,9 @@ bool ClientController::sendSymmKey()
 		return false;
 	}
 
-	uint8_t symmkey[50] = { 1 };
-	std::vector<uint8_t> contentVec(std::begin(symmkey), std::end(symmkey));
+	std::vector<uint8_t> symmKey(50,1);
+	std::vector<uint8_t> contentVec = m_crypto.publicKeyEncrypt(m_publicKey, symmKey);
 	m_sender.sendMessageReq(c->getClientID(), SYM_KEY_SEND_MESSAGE, static_cast<int>(contentVec.size()), contentVec);
-
 	return true;
 }
 
@@ -264,11 +268,12 @@ void ClientController::regSuccess(char * buffer)
 {
 	uint8_t uuid[CLIENTID_SIZE_BYTES];
 	std::ostringstream oss;
+	oss << std::hex << std::setfill('0');
 	for (int i = 0; i < CLIENTID_SIZE_BYTES; i++) {
 		uuid[i] = buffer[i];
 		oss << std::hex << std::setw(2) << std::setfill('0') << (int)uuid[i];
 	}
-	m_fileHandler.createMyInfo(m_registrationUsername, oss.str());
+	m_fileHandler.createMyInfo(m_registrationUsername, oss.str(), m_publicKey);
 	std::cout << "registration completed successfully " << std::endl;
 }
 
@@ -280,11 +285,12 @@ void ClientController::userListResponse(char* buffer, short payloadSize)
 
 	uint8_t clientID[CLIENTID_SIZE_BYTES];
 	char username[USERNAME_SIZE_BYTES];
+	
 
 	for (int i = 0; i < payloadSize; i += USERNAME_SIZE_BYTES + CLIENTID_SIZE_BYTES) {
 		std::memcpy(username, buffer + i, USERNAME_SIZE_BYTES);
 		std::memcpy(clientID, buffer + i + USERNAME_SIZE_BYTES, CLIENTID_SIZE_BYTES);
-		std::string s(username);
+		std::string s(username, strnlen(username, USERNAME_SIZE_BYTES));
 		Contact contact(s, clientID);
 		Contact::contacts.push_back(contact);
 	}
@@ -298,10 +304,9 @@ void ClientController::userListResponse(char* buffer, short payloadSize)
 void ClientController::publicKeyResponse(char* buffer)
 {
 	std::cout << "2102 respones! recieved target public key\n";
-	uint8_t publicKey[PUBLICKEY_SIZE_BYTES];
 	uint8_t clientID[CLIENTID_SIZE_BYTES];
 	std::memcpy(clientID, buffer, CLIENTID_SIZE_BYTES);
-	std::memcpy(publicKey, buffer + CLIENTID_SIZE_BYTES, PUBLICKEY_SIZE_BYTES);
+	std::vector <uint8_t> publicKey(buffer + CLIENTID_SIZE_BYTES, buffer + CLIENTID_SIZE_BYTES + PUBLIC_KEY_SIZE_BYTES);
 	Contact* c = Contact::getContact(clientID);
 	if (Contact::getContact(clientID) != nullptr) {
 		c->setPublicKey(publicKey);
@@ -327,10 +332,8 @@ void ClientController::waitingMessages(char* buffer, short payloadSize)
 
 		std::memcpy(&senderID, buffer + MESSAGE_CLIENTID_OFFSET + i, CLIENTID_SIZE_BYTES);
 		std::memcpy(&messageID, buffer + MESSAGE_ID_OFFSET + i, MESSAGE_ID_SIZE_BYTES);
-		messageID = ntohl(messageID);
 		std::memcpy(&messageType, buffer + MESSAGE_TYPE_OFFSET + i, MESSAGE_TYPE_SIZE_BYTES);
 		std::memcpy(&messageContentSize, buffer + MESSAGE_CONTENT_SIZE_OFFSET + i, MESSAGE_CONTENT_SIZE_SIZE_BYTES);
-		messageContentSize = ntohl(messageContentSize);
 
 		Contact* c = Contact::getContact(senderID);
 
@@ -347,6 +350,8 @@ void ClientController::waitingMessages(char* buffer, short payloadSize)
 		std::cout << "Content:\n";
 		switch (messageType) {
 		case SYM_KEY_REQ_MESSAGE: {
+			std::vector<uint8_t> stub;
+			m_crypto.privateKeyDecrypt(m_privateKey, stub);
 			std::cout << "Request for symmetric key\n";
 			break;
 		}

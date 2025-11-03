@@ -5,7 +5,7 @@ RequestSender::RequestSender(Communication& comm) : m_comm(comm)
 {
 }
 
-void RequestSender::sendRegisterReq(const std::string& username, const uint8_t* publicKey) {
+void RequestSender::sendRegisterReq(const std::string& username, std::vector<uint8_t> publicKey) {
 	std::vector<uint8_t> dataVec;
 	RegisterRequest request{ username, publicKey };
 	dataVec = request.serialize();
@@ -35,7 +35,7 @@ void RequestSender::sendWaitingMessagesReq() {
 	send(m_comm.getSocket(), reinterpret_cast<const char*>(dataVec.data()), static_cast<int>(dataVec.size()), 0);
 }
 
-void RequestSender::sendMessageReq(const uint8_t* targetClientID, uint8_t type, int contentSize, const std::vector<uint8_t>& content) {
+void RequestSender::sendMessageReq(const uint8_t* targetClientID, uint8_t type, uint32_t contentSize, const std::vector<uint8_t>& content) {
 	std::vector<uint8_t> dataVec;
 	MessageRequest request{targetClientID, type, contentSize, content };
 	dataVec = request.serialize();

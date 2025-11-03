@@ -1,5 +1,6 @@
 #pragma once
 #include <string>
+#include <vector>
 
 class FileHandler {
 private:
@@ -11,7 +12,6 @@ public:
 	int readServerPort();
 
 	bool isRegistered();
-	void createMyInfo(std::string username, std::string uuid);
-
+	void createMyInfo(std::string username, std::string uuid, const std::vector<uint8_t> &publicKey);
 	static bool readClientID(uint8_t(&m_clientID)[16]);
 };

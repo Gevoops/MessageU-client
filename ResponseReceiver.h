@@ -5,13 +5,13 @@ class ResponseReceiver {
 public:
 	ResponseReceiver(Communication& comm);
 	void receiveResponse();
-	short getResponseCode() const;
-	int getPayloadSize() const;
+	uint16_t getResponseCode() const;
+	uint32_t getPayloadSize() const;
 	char* getBuffer();
 
 private:
-	short m_responseCode = 0;
-	int m_payloadSize = 0;
+	uint16_t m_responseCode = 0;
+	uint32_t m_payloadSize = 0;
 	char m_buffer[1024 * 50];
 	Communication &m_comm;
 
