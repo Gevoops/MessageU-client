@@ -4,6 +4,7 @@
 #include <cstring> 
 #include <vector>
 #include <cstdint> 
+#include "../Communication.h"
 
 
 class Request {
@@ -22,7 +23,6 @@ class Request {
 
         std::vector<uint8_t> serialize() const;
 
-        void setClientID();
-
+        void sendToServer(Communication &comm);
 };
 

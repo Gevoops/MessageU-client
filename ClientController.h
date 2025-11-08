@@ -1,25 +1,23 @@
 #pragma once
 #include "FileHandler.h"
 #include "Communication.h"
-#include "requests/RequestSender.h"
 #include "ResponseReceiver.h"
-#include "Crypto.h"
+#include "encryption/Crypto.h"
 
 class ClientController {
 public:
-	ClientController(FileHandler& fileHandler, RequestSender& sender, ResponseReceiver & receiver, Crypto & crypto);
+	ClientController(FileHandler& fileHandler, ResponseReceiver & receiver, Crypto & crypto, Communication &comm);
 	void run();
 	
 
 
 private:
-	std::vector<uint8_t> m_publicKey{ PUBLICKEY_SIZE_BYTES };
-	std::vector<uint8_t> m_privateKey{ PUBLICKEY_SIZE_BYTES };
 	std::string m_registrationUsername = "";
 	FileHandler& m_fileHandler;
-	RequestSender& m_sender;
+	std::string m_privKey;
 	ResponseReceiver& m_receiver;
 	Crypto& m_crypto;
+	Communication& m_comm;
 
 	void printMenu();
 	bool handleChoice(int choice);
@@ -34,10 +32,10 @@ private:
 	bool sendSymmKey();
 
 	void regSuccess(char * buffer);
-	void userListResponse(char* buffer, short payloadSize);
+	void userListResponse(char* buffer, uint32_t payloadSize);
 	void publicKeyResponse(char* buffer);
 	void messageReceivedByServer(char* buffer);
-	void waitingMessages(char* buffer, short payloadSize);
+	void waitingMessages(char* buffer, uint32_t payloadSize);
 
 	
 
@@ -69,8 +67,9 @@ private:
 	static const int RESPONSE_CODE_SIZE_BYTES = 2;
 	static const int PAYLOAD_SIZE_SIZE_BYTES = 4;
 	static const int RESPONSE_HEADER_SIZE_BYTES = VERSION_SIZE_BYTES + RESPONSE_CODE_SIZE_BYTES + PAYLOAD_SIZE_SIZE_BYTES;
-	static const int MESSAGE_CLIENTID_OFFSET = RESPONSE_HEADER_SIZE_BYTES;
-	static const int MESSAGE_ID_OFFSET = RESPONSE_HEADER_SIZE_BYTES + CLIENTID_SIZE_BYTES;
+
+	static const int MESSAGE_CLIENTID_OFFSET = 0;
+	static const int MESSAGE_ID_OFFSET = MESSAGE_CLIENTID_OFFSET + CLIENTID_SIZE_BYTES;
 	static const int MESSAGE_TYPE_OFFSET = MESSAGE_ID_OFFSET + MESSAGE_ID_SIZE_BYTES;
 	static const int MESSAGE_CONTENT_SIZE_OFFSET = MESSAGE_TYPE_OFFSET + MESSAGE_TYPE_SIZE_BYTES;
 	static const int MESSAGE_CONTENT_OFFSET = MESSAGE_CONTENT_SIZE_OFFSET + MESSAGE_CONTENT_SIZE_SIZE_BYTES;

@@ -5,8 +5,8 @@
 #include "../Communication.h"
 
 
-MessageRequest::MessageRequest(const uint8_t* targetClientID, uint8_t type, uint32_t contentSize, const std::vector<uint8_t> &content)
-	: Request(MESSAGE_REQ, CLIENTID_SIZE_BYTES + MESSAGE_TYPE_SIZE_BYTES + MESSAGE_CONTENT_SIZE_SIZE_BYTES + content.size()) {
+MessageRequest::MessageRequest(const uint8_t* targetClientID, uint8_t type, uint32_t contentSize, std::string content)
+	: Request(MESSAGE_REQ, static_cast<uint32_t>(CLIENTID_SIZE_BYTES + MESSAGE_TYPE_SIZE_BYTES + MESSAGE_CONTENT_SIZE_SIZE_BYTES + content.size())) {
 
 	m_payLoad.clear();
 	m_payLoad.insert(m_payLoad.end(), targetClientID, targetClientID + CLIENTID_SIZE_BYTES);

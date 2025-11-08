@@ -53,7 +53,7 @@ SOCKET Communication::initSocket() {
 	return clientSocket;
 }
 
-SOCKET Communication::getSocket() const
+SOCKET Communication::getSocket()
 {
 	return m_socket;
 }

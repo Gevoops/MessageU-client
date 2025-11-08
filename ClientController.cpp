@@ -5,20 +5,31 @@
 #include <vector>
 #include <winsock2.h>
 #include <ws2tcpip.h>
-#include "requests/RequestSender.h"
 #include "Contact.h"
 #include <iomanip>
+#include "requests/AllRequests.h"
+#include "encryption/Base64Wrapper.h"
+#include "encryption/RSAWrapper.h"
+#include "encryption/AESWrapper.h"
 
+std::string privateKeyCopy;
 
-
-ClientController::ClientController(FileHandler& fileHandler, RequestSender& sender, ResponseReceiver& receiver, Crypto &crypto) :
-	m_fileHandler(fileHandler), m_sender(sender), m_receiver(receiver) , m_crypto(crypto)
+ClientController::ClientController(FileHandler& fileHandler, ResponseReceiver& receiver, Crypto &crypto, Communication& comm) :
+	m_fileHandler(fileHandler), m_receiver(receiver) , m_crypto(crypto), m_comm(comm)
 {
 	
 }
 
+void printClientID(const uint8_t * ID){
+	for (int i = 0; i < CLIENTID_SIZE_BYTES; i++) {
+		std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)ID[i];
+	}
+	std::cout << '\n';
+}
+
 void ClientController::run()
 {
+	
 	bool sentRequest;
 	int choice = 1;
 
@@ -100,7 +111,7 @@ void ClientController::handleResponse()
 {
 	m_receiver.receiveResponse();
 	char* buffer = m_receiver.getBuffer();
-	short payloadSize = m_receiver.getPayloadSize();
+	uint32_t payloadSize = m_receiver.getPayloadSize();
 	switch (m_receiver.getResponseCode()) {
 		case REG_SUCCESS_RESPONSE: {
 			regSuccess(buffer);
@@ -124,7 +135,7 @@ void ClientController::handleResponse()
 			break;
 		}
 		case SERVER_ERROR_RESPONSE: {
-			std::cout << "some error has occurred, server respone 9000" << std::endl;
+			std::cout << "server responded with an error" << std::endl;
 			break;
 		}
 		default:
@@ -144,12 +155,23 @@ int ClientController::readInput()
 	return input;
 }
 
+void hexify(const unsigned char* buffer, unsigned int length)
+{
+	std::ios::fmtflags f(std::cout.flags());
+	std::cout << std::hex;
+	for (size_t i = 0; i < length; i++)
+		std::cout << std::setfill('0') << std::setw(2) << (0xFF & buffer[i]) << (((i + 1) % 16 == 0) ? "\n" : " ");
+	std::cout << std::endl;
+	std::cout.flags(f);
+}
+
 
 bool ClientController::registerClient() {
 	if (m_fileHandler.isRegistered()) {
 		std::cout << "The file my.info already exists\n";
 		return false;
 	}
+
 	std::cout << "Register was chosen" << std::endl;
 	std::cout << "please choose a username. max length is 254 characters." << std::endl;
 	std::getline(std::cin, m_registrationUsername);
@@ -158,19 +180,25 @@ bool ClientController::registerClient() {
 		std::cout << "username not valid, please choose 1 - 254 chars";
 		return false;
 	}
-	m_crypto.genPublicPrivateKeyPair(m_publicKey, m_privateKey);
-	m_sender.sendRegisterReq(m_registrationUsername, m_publicKey);
+	
+	RSAPrivateWrapper rsapriv;
+	m_privKey = rsapriv.getPrivateKey();
+	std::string pubkey = rsapriv.getPublicKey();
+
+	RegisterRequest request(m_registrationUsername, pubkey);
+	request.sendToServer(m_comm);
 	return true;
 }
 
 bool ClientController::getClientList()
 {
-	std::cout << "120 ask for client list" << std::endl;
+	std::cout << "client list requested" << std::endl;
 	if (!m_fileHandler.isRegistered()) {
-		std::cout << "not registered yet. please use 110" << std::endl;
+		std::cout << "not registered yet. please register with 110" << std::endl;
 		return false;
 	}
-	m_sender.sendClientListReq();
+	UserListRequest request{};
+	request.sendToServer(m_comm);
 	return true;
 }
 
@@ -187,7 +215,8 @@ bool ClientController::reqPublicKey()
 		std::cout << "contact not found. ask for contact list or try another\n";
 		return false;
 	}
-	m_sender.sendPublicKeyReq(contact);
+	PublicKeyRequest request{contact->getClientID()};
+	request.sendToServer(m_comm);
 	return true;
 }
 
@@ -198,7 +227,8 @@ bool ClientController::getWaitingMessages()
 		std::cout << "please use 120 first" << std::endl;
 		return false;
 	}
-	m_sender.sendWaitingMessagesReq();
+	GetMessagesRequest request{};
+	request.sendToServer(m_comm);
 	return true;
 }
 
@@ -210,18 +240,25 @@ bool ClientController::sendTextMessage()
 	std::string targetUsername;
 	std::getline(std::cin, targetUsername);
 
-	Contact* c = Contact::getContact(targetUsername);
-	if (c == nullptr) {
+	Contact* contact = Contact::getContact(targetUsername);
+	if (contact == nullptr) {
 		std::cout << "contact not found. ask for contact list or try another\n";
+		return false;
+	}
+	if (!contact->isSymmKeySaved()) {
+		std::cout << "please establish symmetric key pair before sending a message\n";
 		return false;
 	}
 	std::cout << "please enter message content" << std::endl;
 
 	std::string messageContent;
 	std::getline(std::cin, messageContent);
-	std::vector<uint8_t> contentVec(messageContent.begin(), messageContent.end());
 
-	m_sender.sendMessageReq(c->getClientID(), TEXT_MESSAGE, static_cast<int>(messageContent.size()), contentVec);
+	hexify(contact->getSymmKey(),16);
+	AESWrapper aes(contact->getSymmKey(), AESWrapper::DEFAULT_KEYLENGTH);
+	std::string encryptedMessage = aes.encrypt(messageContent.c_str(), static_cast<unsigned int>(messageContent.length()));
+	MessageRequest request(contact->getClientID(), TEXT_MESSAGE, static_cast<uint32_t>(encryptedMessage.size()), encryptedMessage);
+	request.sendToServer(m_comm);
 	return true;
 }
 
@@ -229,38 +266,63 @@ bool ClientController::reqSymmKey()
 {
 	std::cout << "151 request symmetric key!" << std::endl;
 	std::string targetUsername;
+	std::cout << "please enter target username\n";
 	std::getline(std::cin, targetUsername);
 
-	Contact* c = Contact::getContact(targetUsername);
-	if (c == nullptr) {
+	Contact* contact = Contact::getContact(targetUsername);
+	if (contact == nullptr) {
 		std::cout << "contact not found. ask for contact list or try another\n";
 		return false;
 	}
-	std::vector<uint8_t> messageContent;
-	messageContent = m_crypto.publicKeyEncrypt(c->getPublicKey(), messageContent);
-	if (messageContent.empty()) {
+	// in the protocol it is said to encrypt this message. 
+	// this message content is non existent and it is not clear to me what to encrypt or how it is possible
+	// a forum question was asked, multiple times, and one answer was "if you think there is nothing to encrypt then dont". 
+	// i didnt want it to seem like im ignoring protocol but i had to resolve this contradiction somehow.
+	// so i decided to adhere to the protocol in terms of messaging order, but i will not encrypt this message type. 
+	// i also think it is safe because the symmetric key is the actual secret, and i dont see why i should 
+	// encrypt the message requesting for it.
+	
+	std::string messageContent;
+	printClientID(contact->getClientID());
+	if (contact->getPublicKey().empty()) {
 		std::cout << "before sending this request, please get the recipient public key\n";
 		return false;
 	}
-	m_sender.sendMessageReq(c->getClientID(), SYM_KEY_REQ_MESSAGE, 0, messageContent);
+	
+	MessageRequest request(contact->getClientID(), SYM_KEY_REQ_MESSAGE, static_cast<uint32_t>(messageContent.size()), messageContent);
+	request.sendToServer(m_comm);
 	return true;
 }
 
 bool ClientController::sendSymmKey()
 {
-	std::cout << "152 send simetric key!" << std::endl;
+	std::cout << "152 send symmetric key!" << std::endl;
 	std::string targetUsername;
 	std::getline(std::cin, targetUsername);
 
-	Contact* c = Contact::getContact(targetUsername);
-	if (c == nullptr) {
+	Contact* contact = Contact::getContact(targetUsername);
+	if (contact == nullptr) {
 		std::cout << "contact not found. ask for contact list or try another\n";
 		return false;
 	}
 
-	std::vector<uint8_t> symmKey(50,1);
-	std::vector<uint8_t> contentVec = m_crypto.publicKeyEncrypt(m_publicKey, symmKey);
-	m_sender.sendMessageReq(c->getClientID(), SYM_KEY_SEND_MESSAGE, static_cast<int>(contentVec.size()), contentVec);
+	if (!contact->isPubKeySaved()) {
+		std::cout << "Please get target contact public key before trying to send your symmetric key\n";
+		return false;
+	}
+
+	unsigned char key[AESWrapper::DEFAULT_KEYLENGTH];
+	AESWrapper aes(AESWrapper::GenerateKey(key, AESWrapper::DEFAULT_KEYLENGTH), AESWrapper::DEFAULT_KEYLENGTH);
+
+	contact->setSymmKey(aes.getKey());
+	hexify(contact->getSymmKey(), 16);
+
+	RSAPublicWrapper rsapub(contact->getPublicKey());
+	std::string encryptedSymmKey = rsapub.encrypt((const char *)aes.getKey(), AESWrapper::DEFAULT_KEYLENGTH);
+	
+	
+	MessageRequest request(contact->getClientID(), SYM_KEY_SEND_MESSAGE, static_cast<uint32_t>(encryptedSymmKey.size()), encryptedSymmKey);
+	request.sendToServer(m_comm);
 	return true;
 }
 
@@ -273,40 +335,46 @@ void ClientController::regSuccess(char * buffer)
 		uuid[i] = buffer[i];
 		oss << std::hex << std::setw(2) << std::setfill('0') << (int)uuid[i];
 	}
-	m_fileHandler.createMyInfo(m_registrationUsername, oss.str(), m_publicKey);
+	m_fileHandler.createMyInfo(m_registrationUsername, oss.str(), m_privKey);
+
+	if (m_privKey != m_fileHandler.readPrivateKey()) {
+		std::cout << "doesnt work brrother\n";
+		std::cout << m_privKey.length() << " ";
+		std::cout << m_fileHandler.readPrivateKey().length() << "\n";
+
+	}
 	std::cout << "registration completed successfully " << std::endl;
 }
 
-void ClientController::userListResponse(char* buffer, short payloadSize)
+void ClientController::userListResponse(char* buffer, uint32_t payloadSize)
 {
-	std::cout << "2101 response! recieved contact list" << std::endl;
+	std::cout << "recieved client list" << std::endl;
 
-	Contact::contacts.clear();
+	std::vector<Contact> contactList;
 
 	uint8_t clientID[CLIENTID_SIZE_BYTES];
-	char username[USERNAME_SIZE_BYTES];
-	
 
-	for (int i = 0; i < payloadSize; i += USERNAME_SIZE_BYTES + CLIENTID_SIZE_BYTES) {
-		std::memcpy(username, buffer + i, USERNAME_SIZE_BYTES);
+	for (uint32_t i = 0; i < payloadSize; i += USERNAME_SIZE_BYTES + CLIENTID_SIZE_BYTES) {
+		std::string username(buffer + i, buffer + i + USERNAME_SIZE_BYTES);
 		std::memcpy(clientID, buffer + i + USERNAME_SIZE_BYTES, CLIENTID_SIZE_BYTES);
-		std::string s(username, strnlen(username, USERNAME_SIZE_BYTES));
-		Contact contact(s, clientID);
-		Contact::contacts.push_back(contact);
+		username.erase(std::find(username.begin(), username.end(), '\0'), username.end());
+		Contact contact(username, clientID);
+		contactList.push_back(contact);
 	}
 
-	for (const Contact& contact : Contact::contacts) {
+	for (const Contact& contact : contactList) {
 		std::cout << contact.getUsername() << std::endl;
 	}
-	
+
+	Contact::updateContacts(contactList);
 }
 
 void ClientController::publicKeyResponse(char* buffer)
 {
-	std::cout << "2102 respones! recieved target public key\n";
+	std::cout << "recieved public key\n";
 	uint8_t clientID[CLIENTID_SIZE_BYTES];
 	std::memcpy(clientID, buffer, CLIENTID_SIZE_BYTES);
-	std::vector <uint8_t> publicKey(buffer + CLIENTID_SIZE_BYTES, buffer + CLIENTID_SIZE_BYTES + PUBLIC_KEY_SIZE_BYTES);
+	std::string publicKey(buffer + CLIENTID_SIZE_BYTES, buffer + CLIENTID_SIZE_BYTES + PUBLIC_KEY_SIZE_BYTES);
 	Contact* c = Contact::getContact(clientID);
 	if (Contact::getContact(clientID) != nullptr) {
 		c->setPublicKey(publicKey);
@@ -321,13 +389,14 @@ void ClientController::messageReceivedByServer(char* buffer)
 	std::cout << "message sent and recieved by server! \n";
 }
 
-void ClientController::waitingMessages(char* buffer, short payloadSize)
+void ClientController::waitingMessages(char* buffer, uint32_t payloadSize)
 {
-	for (int i = 0; i < payloadSize;) {
+	uint32_t messageContentSize = 0;
+	for (uint32_t i = 0; i < payloadSize; i += (MESSAGE_HEADER_SIZE_BYTES + messageContentSize)) {
 		uint8_t senderID[CLIENTID_SIZE_BYTES];
 		uint32_t messageID;
 		uint8_t messageType;
-		uint32_t messageContentSize = 0;
+		
 		std::string sender_username;
 
 		std::memcpy(&senderID, buffer + MESSAGE_CLIENTID_OFFSET + i, CLIENTID_SIZE_BYTES);
@@ -335,35 +404,54 @@ void ClientController::waitingMessages(char* buffer, short payloadSize)
 		std::memcpy(&messageType, buffer + MESSAGE_TYPE_OFFSET + i, MESSAGE_TYPE_SIZE_BYTES);
 		std::memcpy(&messageContentSize, buffer + MESSAGE_CONTENT_SIZE_OFFSET + i, MESSAGE_CONTENT_SIZE_SIZE_BYTES);
 
-		Contact* c = Contact::getContact(senderID);
+		Contact* contact = Contact::getContact(senderID);
 
-		if (c != nullptr) {
-			sender_username = c->getUsername();
-			std::cout << sender_username << "\n";
+		if (contact != nullptr) {
+			sender_username = contact->getUsername();
 		}
 		else {
-			std::cout << "cant find sender\n";
-			std::cout << "maybe call 120\n";
+			std::cout << "sender client for this messsage wasnt found. try requesting for client list\n";
+			continue;
 		}
 
 		std::cout << "From: " << sender_username << "\n";
 		std::cout << "Content:\n";
 		switch (messageType) {
 		case SYM_KEY_REQ_MESSAGE: {
-			std::vector<uint8_t> stub;
-			m_crypto.privateKeyDecrypt(m_privateKey, stub);
 			std::cout << "Request for symmetric key\n";
 			break;
 		}
 		case SYM_KEY_SEND_MESSAGE: {
-			std::cout << "symmetric key received\n";
+			std::string encryptedSymmKey(buffer + MESSAGE_CONTENT_OFFSET + i, buffer + MESSAGE_CONTENT_OFFSET + i + messageContentSize);
+			RSAPrivateWrapper decryptor(m_fileHandler.readPrivateKey());
+			try {
+				std::string decryptedSymmKey = decryptor.decrypt(encryptedSymmKey);
+				contact->setSymmKey(reinterpret_cast<const unsigned char*>(decryptedSymmKey.data()));
+				std::cout << "symmetric key received\n";
+			}
+			catch (const std::exception& e) {
+				std::cerr << e.what() << "\n";
+				std::cerr << "can’t decrypt symmetric key message \n";
+			}
+			
 			break;
 		}
 		case TEXT_MESSAGE: {
-			std::string text;
-			text.resize(messageContentSize);
-			std::memcpy(&text[0], buffer + MESSAGE_CONTENT_OFFSET + i, messageContentSize);
-			std::cout << text << "\n";
+			std::string EncryptedMessage(buffer + MESSAGE_CONTENT_OFFSET + i, buffer + MESSAGE_CONTENT_OFFSET + i + messageContentSize);
+
+			try {
+				if (!contact->isSymmKeySaved()) {
+					throw std::runtime_error("no symmetric key saved for this sender: " + contact->getUsername());
+				}
+				AESWrapper decryptor(contact->getSymmKey(), AESWrapper::DEFAULT_KEYLENGTH);
+				std::string decryptedMessage = decryptor.decrypt(EncryptedMessage.c_str(), static_cast<unsigned int>(EncryptedMessage.length()));
+				std::cout << decryptedMessage << "\n";
+			}
+			catch (const std::exception& e){
+				std::cerr << e.what() << "\n";
+				std::cerr << "can’t decrypt message \n";
+			}
+			
 			break;
 		}
 		default:
@@ -372,7 +460,7 @@ void ClientController::waitingMessages(char* buffer, short payloadSize)
 		}
 		std::cout << "-----<EOM>-----\n";
 
-		i += (MESSAGE_HEADER_SIZE_BYTES + messageContentSize);
+		
 	}
 }
 

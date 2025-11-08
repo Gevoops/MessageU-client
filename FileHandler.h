@@ -10,8 +10,9 @@ public:
 	FileHandler();
 	const char* readServerIp();
 	int readServerPort();
+	std::string readPrivateKey();
 
 	bool isRegistered();
-	void createMyInfo(std::string username, std::string uuid, const std::vector<uint8_t> &publicKey);
+	void createMyInfo(std::string username, std::string uuid, const std::string privKey);
 	static bool readClientID(uint8_t(&m_clientID)[16]);
 };

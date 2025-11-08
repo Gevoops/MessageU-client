@@ -3,16 +3,21 @@
 #include <vector>
 #include <string>
 #include "constants.h"
+#include "encryption/AESWrapper.h"
 
 class Contact {
 private: 
-	std::string username;
-	uint8_t clientID[CLIENTID_SIZE_BYTES];
-	std::vector<uint8_t> m_publicKey;
-	std::vector<uint8_t> m_symmKey;
+	std::string m_username;
+	uint8_t m_clientID[CLIENTID_SIZE_BYTES];
+	std::string m_publicKey;
+	unsigned char m_symmKey[SYMM_KEY_SIZE_BYTES];
+	bool m_symmKeySaved;
+	bool m_publicKeySaved;
 
 public: 
 	static std::vector<Contact> contacts;
+
+	static void updateContacts(std::vector<Contact> &contactList);
 
 	static Contact* getContact(std::string username);
 
@@ -20,11 +25,13 @@ public:
 
 	static const bool isContactsEmpty();
 
-	void setPublicKey(std::vector<uint8_t> newPublicKey);
-	const std::vector<uint8_t>& getPublicKey() const;
+	void setPublicKey(std::string newPublicKey);
 
-	void setSymmKey(std::vector<uint8_t> newSymmKey);
-	const std::vector<uint8_t>& getSymmKey() const;
+	const std::string& getPublicKey() const;
+
+	void setSymmKey(const unsigned char * m_symmKey);
+
+	const unsigned char * getSymmKey() const;
 
 
 	Contact(std::string username, const uint8_t* clientID);
@@ -32,7 +39,9 @@ public:
 	std::string getUsername() const;
 
 	const uint8_t* getClientID() const;
+
+	const bool isSymmKeySaved() const;
+
+	const bool isPubKeySaved() const;
 	
-	
-		
 };

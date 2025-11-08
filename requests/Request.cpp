@@ -1,6 +1,5 @@
 #include "Request.h"
 #include "../Constants.h"
-#include "../Communication.h"
 #include "../Utils.h"
 #include <fstream>
 #include <iostream>
@@ -42,6 +41,10 @@ std::vector<uint8_t> Request::serialize() const {
 	return dataVec;
 }
 
-void Request::setClientID()
-{
+void Request::sendToServer(Communication& comm) {
+	std::vector<uint8_t> dataVec;
+	dataVec = this->serialize();
+	send(comm.getSocket(), reinterpret_cast<const char*>(dataVec.data()), static_cast<int>(dataVec.size()), 0);
 }
+
+

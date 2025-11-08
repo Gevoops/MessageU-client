@@ -14,20 +14,30 @@
 #include "requests/AllRequests.h"
 #include "ClientController.h"
 #include "ResponseReceiver.h"
+#include "encryption/Crypto.h"
+#include "encryption/AESWrapper.h"
+#include "encryption/Base64Wrapper.h"
+#include "encryption/RSAWrapper.h"
 
 
-#pragma comment(lib, "ws2_32.lib")
 
 
 int main() {
 	FileHandler fileHandler;
 	Communication comm; // init socket
-	RequestSender sender(comm);
+	if (comm.getSocket() == INVALID_SOCKET) {
+		std::cout << "connection to server couldn't be formed, please try again later\n";
+		return 1;
+	}
 	ResponseReceiver receiver(comm);
 	Crypto crypto;
-	ClientController controller(fileHandler, sender, receiver, crypto);
+	ClientController controller(fileHandler, receiver, crypto, comm);
 
 	controller.run();
 
 	return 0;
 }
+
+
+
+

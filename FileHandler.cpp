@@ -4,6 +4,7 @@
 #include <string>
 #include <iomanip>
 #include "Constants.h"
+#include "encryption/Base64Wrapper.h"
 
 std::string FileHandler::serverIp = "";
 int FileHandler::serverPort = 0;
@@ -12,7 +13,7 @@ FileHandler::FileHandler() {
 	
 }
 
-void FileHandler::createMyInfo(std::string username, std::string uuid, const std::vector<uint8_t>& publicKey) {
+void FileHandler::createMyInfo(std::string username, std::string uuid, const std::string privKey) {
 	std::ofstream file("my.info");
 	if (!file) {
 		std::cout << "error creating my.info file" << std::endl;
@@ -20,9 +21,7 @@ void FileHandler::createMyInfo(std::string username, std::string uuid, const std
 	}
 	file << username << std::endl;
 	file << uuid << std::endl;
-	for (int i = 0; i < PUBLICKEY_SIZE_BYTES; i++) {
-		file << std::hex << std::setw(2) << std::setfill('0') << (int)publicKey[i];
-	}
+	file << Base64Wrapper::encode(privKey) << std::endl;
 	file.close();
 }
 
@@ -82,4 +81,18 @@ int FileHandler::readServerPort() {
 	serverPort = std::stoi(serverInfo.substr(index + 1));
 
 	return serverPort;
+}
+
+std::string FileHandler::readPrivateKey()
+{
+	std::ifstream file("my.info");
+	if (!file) return std::string();
+
+	std::string privKey;
+
+	std::getline(file, privKey);
+	std::getline(file, privKey);
+	std::getline(file, privKey);
+
+	return Base64Wrapper::decode(privKey);
 }

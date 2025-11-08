@@ -15,11 +15,8 @@ void ResponseReceiver::receiveResponse() {
 
 	std::memcpy(&m_responseCode, &m_buffer[VERSION_SIZE_BYTES], RESPONSE_CODE_SIZE_BYTES);
 	std::memcpy(&m_payloadSize, &m_buffer[VERSION_SIZE_BYTES + RESPONSE_CODE_SIZE_BYTES], PAYLOAD_SIZE_SIZE_BYTES);
-	std::cout << "payload size" << m_payloadSize << "\n";
-	for (int i = 0; i < m_payloadSize; i += 1024) {
+	for (uint32_t i = 0; i < m_payloadSize; i += 1024) {
 		bytesReceived += recv(m_comm.getSocket(), &m_buffer[RESPONSE_HEADER_SIZE_BYTES + i], 1024, 0);
-		std::cout << "ur here receive \n";
-		std::cout << "i \n";
 	}
 
 }
