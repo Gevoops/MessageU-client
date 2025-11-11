@@ -1,6 +1,7 @@
 #include "RegisterRequest.h"
 #include <vector>
 #include <iostream>
+#include "../Constants.h"
 
 
 RegisterRequest::RegisterRequest(std::string username, std::string publicKey) : Request(REGISTER_REQ, USERNAME_SIZE_BYTES + PUBLIC_KEY_SIZE_BYTES) {

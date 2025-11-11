@@ -33,15 +33,6 @@ constexpr uint16_t MESSAGE_REQ = 603;
 constexpr uint16_t GET_MESSAGES_REQ = 604;
 
 
-// response codes
-constexpr uint16_t REG_SUCCESS_RESPONSE = 2100;
-constexpr uint16_t USER_LIST_RESPONSE = 2101;
-constexpr uint16_t PUBLIC_KEY_RESPONSE = 2102;
-constexpr uint16_t MESSAGE_SENT_RESPONSE = 2103;
-constexpr uint16_t WAITING_MESSAGES_RESPONSE = 2104;
-constexpr uint16_t SERVER_ERROR_RESPONSE = 9000;
-
-
 
 
 

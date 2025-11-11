@@ -12,24 +12,15 @@
 #include "encryption/RSAWrapper.h"
 #include "encryption/AESWrapper.h"
 
-std::string privateKeyCopy;
 
-ClientController::ClientController(FileHandler& fileHandler, ResponseReceiver& receiver, Crypto &crypto, Communication& comm) :
-	m_fileHandler(fileHandler), m_receiver(receiver) , m_crypto(crypto), m_comm(comm)
+ClientController::ClientController(FileHandler& fileHandler, ResponseReceiver& receiver, Communication& comm) :
+	m_fileHandler(fileHandler), m_receiver(receiver), m_comm(comm)
 {
 	
-}
-
-void printClientID(const uint8_t * ID){
-	for (int i = 0; i < CLIENTID_SIZE_BYTES; i++) {
-		std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)ID[i];
-	}
-	std::cout << '\n';
 }
 
 void ClientController::run()
 {
-	
 	bool sentRequest;
 	int choice = 1;
 
@@ -152,17 +143,33 @@ int ClientController::readInput()
 	std::string inputString;
 	std::getline(std::cin, inputString);
 	std::stringstream(inputString) >> input;
+	if (inputString.size() > REQ_CODE_DIGITS) {
+		return INVALID_INPUT;
+	}
+	for (char c : inputString) {
+		if (!std::isdigit(c))
+			return INVALID_INPUT;
+	}
 	return input;
 }
 
-void hexify(const unsigned char* buffer, unsigned int length)
+std::string ClientController::inputUsername()
 {
-	std::ios::fmtflags f(std::cout.flags());
-	std::cout << std::hex;
-	for (size_t i = 0; i < length; i++)
-		std::cout << std::setfill('0') << std::setw(2) << (0xFF & buffer[i]) << (((i + 1) % 16 == 0) ? "\n" : " ");
-	std::cout << std::endl;
-	std::cout.flags(f);
+	std::string error_m("username not valid, please use 1 - 254 letters or numbers");
+	std::string input;
+	std::getline(std::cin, input);
+	if (input.size() > USERNAME_SIZE_BYTES - 1 || input.size() == 0) {
+		std::cout << error_m;
+		return std::string();
+	}
+
+	for (char c : input) {
+		if (!std::isalnum(static_cast<unsigned char>(c))) {
+			std::cout << error_m;
+			return std::string();
+		}
+	}
+	return input;
 }
 
 
@@ -174,13 +181,10 @@ bool ClientController::registerClient() {
 
 	std::cout << "Register was chosen" << std::endl;
 	std::cout << "please choose a username. max length is 254 characters." << std::endl;
-	std::getline(std::cin, m_registrationUsername);
-	
-	if (m_registrationUsername.size() > USERNAME_SIZE_BYTES - 1 || m_registrationUsername.size() == 0) {
-		std::cout << "username not valid, please choose 1 - 254 chars";
+	m_registrationUsername = inputUsername();
+	if (m_registrationUsername.empty()) {
 		return false;
 	}
-	
 	RSAPrivateWrapper rsapriv;
 	m_privKey = rsapriv.getPrivateKey();
 	std::string pubkey = rsapriv.getPublicKey();
@@ -207,8 +211,10 @@ bool ClientController::reqPublicKey()
 	std::cout << "130 ask for public key" << std::endl;
 	std::cout << "Please enter the username of the user whose public key you want." << std::endl;
 
-	std::string targetUsername;
-	std::getline(std::cin, targetUsername);
+	std::string targetUsername = inputUsername();
+	if (targetUsername.empty()) {
+		return false;
+	}
 
 	Contact* contact = Contact::getContact(targetUsername);
 	if (contact == nullptr) {
@@ -237,8 +243,10 @@ bool ClientController::sendTextMessage()
 	std::cout << "150 send a txt message" << std::endl;
 	std::cout << "please enter target username" << std::endl;
 
-	std::string targetUsername;
-	std::getline(std::cin, targetUsername);
+	std::string targetUsername = inputUsername();
+	if (targetUsername.empty()) {
+		return false;
+	}
 
 	Contact* contact = Contact::getContact(targetUsername);
 	if (contact == nullptr) {
@@ -253,8 +261,12 @@ bool ClientController::sendTextMessage()
 
 	std::string messageContent;
 	std::getline(std::cin, messageContent);
+	if (messageContent.size() > ClientController::MESSAGE_MAX_SIZE) {
+		std::cout << "max message length is: " << ClientController::MESSAGE_MAX_SIZE 
+			<< "the length of your message was: " << messageContent.size() << "\n";
+		return false;
+	}
 
-	hexify(contact->getSymmKey(),16);
 	AESWrapper aes(contact->getSymmKey(), AESWrapper::DEFAULT_KEYLENGTH);
 	std::string encryptedMessage = aes.encrypt(messageContent.c_str(), static_cast<unsigned int>(messageContent.length()));
 	MessageRequest request(contact->getClientID(), TEXT_MESSAGE, static_cast<uint32_t>(encryptedMessage.size()), encryptedMessage);
@@ -264,10 +276,12 @@ bool ClientController::sendTextMessage()
 
 bool ClientController::reqSymmKey()
 {
-	std::cout << "151 request symmetric key!" << std::endl;
-	std::string targetUsername;
+	std::cout << "request for symmetric key!" << std::endl;
 	std::cout << "please enter target username\n";
-	std::getline(std::cin, targetUsername);
+	std::string targetUsername = inputUsername();
+	if (targetUsername.empty()) {
+		return false;
+	}
 
 	Contact* contact = Contact::getContact(targetUsername);
 	if (contact == nullptr) {
@@ -283,7 +297,6 @@ bool ClientController::reqSymmKey()
 	// encrypt the message requesting for it.
 	
 	std::string messageContent;
-	printClientID(contact->getClientID());
 	if (contact->getPublicKey().empty()) {
 		std::cout << "before sending this request, please get the recipient public key\n";
 		return false;
@@ -296,9 +309,11 @@ bool ClientController::reqSymmKey()
 
 bool ClientController::sendSymmKey()
 {
-	std::cout << "152 send symmetric key!" << std::endl;
-	std::string targetUsername;
-	std::getline(std::cin, targetUsername);
+	std::cout << "send symmetric key!" << std::endl;
+	std::string targetUsername = inputUsername();
+	if (targetUsername.empty()) {
+		return false;
+	}
 
 	Contact* contact = Contact::getContact(targetUsername);
 	if (contact == nullptr) {
@@ -315,7 +330,6 @@ bool ClientController::sendSymmKey()
 	AESWrapper aes(AESWrapper::GenerateKey(key, AESWrapper::DEFAULT_KEYLENGTH), AESWrapper::DEFAULT_KEYLENGTH);
 
 	contact->setSymmKey(aes.getKey());
-	hexify(contact->getSymmKey(), 16);
 
 	RSAPublicWrapper rsapub(contact->getPublicKey());
 	std::string encryptedSymmKey = rsapub.encrypt((const char *)aes.getKey(), AESWrapper::DEFAULT_KEYLENGTH);

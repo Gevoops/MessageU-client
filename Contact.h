@@ -2,15 +2,15 @@
 #include <cstdint> 
 #include <vector>
 #include <string>
-#include "constants.h"
 #include "encryption/AESWrapper.h"
+#include "Constants.h"
 
 class Contact {
 private: 
 	std::string m_username;
 	uint8_t m_clientID[CLIENTID_SIZE_BYTES];
 	std::string m_publicKey;
-	unsigned char m_symmKey[SYMM_KEY_SIZE_BYTES];
+	unsigned char m_symmKey[AESWrapper::DEFAULT_KEYLENGTH];
 	bool m_symmKeySaved;
 	bool m_publicKeySaved;
 

@@ -5,6 +5,7 @@
 #include <iostream>
 #include <string>
 #include "../FileHandler.h"
+#include <cstring>
 
 uint8_t Request::version = VERSION;
 Request::Request(uint16_t code, uint32_t sizeOfPayload)
@@ -28,14 +29,16 @@ std::vector<uint8_t> Request::serialize() const {
 		sizeOfPayload = Communication::swapEndian32(sizeOfPayload);
 	}
 	std::vector<uint8_t> dataVec;
+
+
 	dataVec.assign(this->m_clientID,this->m_clientID + sizeof(m_clientID));
 	dataVec.insert(dataVec.end(), version);
 	size_t startPos = dataVec.size();
 	dataVec.resize(startPos + sizeof(reqCodeData));
-	std::memcpy(dataVec.data() + startPos, &reqCodeData, sizeof(reqCodeData));
+	memcpy_s(dataVec.data() + startPos, sizeof(reqCodeData), &reqCodeData, sizeof(reqCodeData));
 	startPos = dataVec.size();
 	dataVec.resize(startPos + sizeof(sizeOfPayload));
-	std::memcpy(dataVec.data() + startPos, &sizeOfPayload, sizeof(sizeOfPayload));
+	memcpy_s(dataVec.data() + startPos, sizeof(sizeOfPayload), &sizeOfPayload, sizeof(sizeOfPayload));
 	dataVec.insert(dataVec.end(), m_payLoad.begin(), m_payLoad.end());
 
 	return dataVec;
